@@ -1,0 +1,25 @@
+# Machine-local configuration and environments
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+# Generated outputs and datasets
+output/
+outputs/
+data/
+datasets/
+*.plt
+*.h5
+*.hdf5
+*.xdmf
+*.npz
+*.npy
+*.mp4
+*.zip
+# Python/tool caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/

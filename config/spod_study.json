@@ -1,0 +1,49 @@
+{
+  "cases": {
+    "cp": [
+      "cp"
+    ],
+    "cf_xy": [
+      "cfx",
+      "cfy"
+    ],
+    "cf_xyz": [
+      "cfx",
+      "cfy",
+      "cfz"
+    ]
+  },
+  "dtype": "float64",
+  "temporal_mean_subtraction": true,
+  "spatial_mean_subtraction": false,
+  "area_weighting": true,
+  "component_normalization": "none",
+  "fixed_tapers": [
+    2,
+    4,
+    8,
+    16
+  ],
+  "adaptive_tolerances": [
+    1e-05,
+    5e-05,
+    0.0001
+  ],
+  "adaptive_max_tapers": 200,
+  "selected_ranks": {
+    "cp": 400,
+    "cf_xy": 400,
+    "cf_xyz": 400
+  },
+  "threads": 4,
+  "spatial_batch_size": 16384,
+  "memory_budget_gib": 8,
+  "energy_targets": [
+    0.9,
+    0.95,
+    0.99,
+    0.995,
+    0.999
+  ],
+  "use_tex": true
+}

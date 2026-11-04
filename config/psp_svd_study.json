@@ -1,0 +1,24 @@
+{
+  "domain": {
+    "automatic_mask": "p5_t10",
+    "patch_size": 5,
+    "threshold": 10.0,
+    "temporal_reduction": "max",
+    "crop_pixels_each_edge": 5,
+    "native_mask": null
+  },
+  "subtract_snapshot_spatial_mean": true,
+  "spatial_mean_weighting": "retained FlowTorch geometric nodal area weights",
+  "subtract_pointwise_temporal_mean": true,
+  "svd_weighting": "retained FlowTorch geometric nodal area weights, no rescaling",
+  "dtype": "float64",
+  "mode": "tsqr",
+  "threads": 4,
+  "spatial_batch_size": 8192,
+  "memory_budget_gib": 8,
+  "pilot_points": 8192,
+  "maximum_polar_seconds": 1800,
+  "energy_targets": [0.9, 0.95, 0.99, 0.995, 0.999],
+  "selected_ranks": null,
+  "use_tex": true
+}

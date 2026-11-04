@@ -1,0 +1,19 @@
+{
+  "zone_name": "Wing",
+  "patch_sizes": [3, 5, 7],
+  "thresholds": [5.0, 10.0, 20.0],
+  "temporal_reduction": "max",
+  "lower_bound": null,
+  "upper_bound": null,
+  "mask_chunk_size": 4,
+  "statistics_batch_size": 16,
+  "quantiles": [0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.99],
+  "default_patch_size": 5,
+  "default_threshold": 10.0,
+  "selected_mask": null,
+  "native_mask_policy": "reference_only",
+  "threads": 4,
+  "dtype": "float64",
+  "maximum_polar_seconds": 1800,
+  "use_tex": true
+}

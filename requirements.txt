@@ -1,0 +1,4 @@
+flowtorch-fluid[compression]==1.11.0
+# Native surface geometry construction uses VTK; other data extras are not needed.
+vtk==9.7.1
+python-dotenv==1.2.4
