@@ -82,6 +82,10 @@ python scripts/psp_svd.py full
 python scripts/review_psp_svd.py
 ```
 
+## License
+
+The source code is licensed under the [GNU General Public License v3.0](LICENSE) (GPL-3.0-only).
+
 ## Publications and archive
 
 Archive and publication links will be added.
