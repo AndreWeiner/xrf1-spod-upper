@@ -82,6 +82,13 @@ python scripts/psp_svd.py full
 python scripts/review_psp_svd.py
 ```
 
+Adaptive SPOD comparison:
+
+```bash
+python scripts/psp_spod.py
+python scripts/plot_psp_spod.py
+```
+
 ## License
 
 The source code is licensed under the [GNU General Public License v3.0](LICENSE) (GPL-3.0-only).
