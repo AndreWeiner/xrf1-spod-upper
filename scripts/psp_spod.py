@@ -4,6 +4,8 @@ import inspect
 import json
 from pathlib import Path
 import time
+import subprocess
+import sys
 import numpy as np
 import torch
 from dotenv import load_dotenv
@@ -17,6 +19,7 @@ CONFIG=ROOT/'config/psp_spod_study.json'
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--polar',help='PSP polar ID; defaults to configured primary record')
     parser.add_argument('--rank',type=int);parser.add_argument('--tolerance',type=float)
     parser.add_argument('--gate',type=Path,help='Optional reviewed experiment gate')
     args=parser.parse_args();load_dotenv(ROOT/'.env');config=json.loads(CONFIG.read_text())
@@ -24,11 +27,14 @@ def main():
     if args.gate:
         passed,message=check(args.gate)
         if not passed:raise ValueError(message)
-    base=configured_path('OUTPUT_DIR')/'psp';polar=config['polar']
+    base=configured_path('OUTPUT_DIR')/'psp';polar=args.polar or config['polar']
+    if polar not in config['polars']:raise ValueError('Polar is not included in the study configuration')
     saved=base/'working/svd'/f'polar_{polar}';source=json.loads((saved/'run.json').read_text())
+    if not (saved/'verification.json').is_file():
+        subprocess.run([sys.executable,str(ROOT/'scripts/verify_psp_svd.py'),'--polar',polar],check=True,cwd=ROOT)
     verification=json.loads((saved/'verification.json').read_text())
     assert source['status']=='complete' and verification['status']=='pass' and source['polar']==polar
-    assert source['angle_deg']==4 and source['snapshots']==3639 and source['dtype']=='float64'
+    assert source['angle_deg']==config['polars'][polar] and source['snapshots']==3639 and source['dtype']=='float64'
     assert source['subtract_snapshot_spatial_mean'] and source['subtract_pointwise_temporal_mean']
     assert source['config']['domain']=={'automatic_mask':'p5_t10','patch_size':5,'threshold':10.,'temporal_reduction':'max','crop_pixels_each_edge':5,'native_mask':None}
     assert sha256(saved/'checkpoint/metadata.pt')==source['checkpoint_metadata_sha256']

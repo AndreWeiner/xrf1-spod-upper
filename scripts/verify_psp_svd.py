@@ -1,4 +1,5 @@
 """Verify saved PSP SVD checkpoints, preprocessing and complete file fingerprints."""
+import argparse
 import json
 from pathlib import Path
 import numpy as np
@@ -9,9 +10,12 @@ from psp_study import save_json
 
 
 def main():
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--polar',help='Verify one saved polar instead of all eight')
+    args=parser.parse_args()
     load_dotenv(ROOT/'.env');working=configured_path('OUTPUT_DIR')/'psp/working';records={}
     directories=sorted((working/'svd').glob('polar_*'))
-    if len(directories)!=8:raise ValueError('All eight checkpoints are required')
+    if args.polar:directories=[p for p in directories if p.name==f'polar_{args.polar}']
+    if len(directories)!=(1 if args.polar else 8):raise ValueError('Requested complete checkpoints are missing')
     for directory in directories:
         record=json.loads((directory/'run.json').read_text());assert record['status']=='complete'
         checkpoint=directory/'checkpoint'
@@ -52,6 +56,6 @@ def main():
             'manifest_sha256':manifest}
         save_json(directory/'verification.json',evidence);records[record['polar']]={'status':'pass','checkpoint_bytes':sum(p.stat().st_size for p in checkpoint.rglob('*') if p.is_file()),'validation':record['validation']}
         print(record['polar'],'checkpoint passed',flush=True)
-    save_json(working/'svd/validation.json',{'status':'pass','polars':records,'checkpoint_bytes_total':sum(r['checkpoint_bytes'] for r in records.values())})
+    save_json(working/'svd'/('validation.json' if args.polar is None else f'validation_{args.polar}.json'),{'status':'pass','polars':records,'checkpoint_bytes_total':sum(r['checkpoint_bytes'] for r in records.values())})
 
 if __name__=='__main__':main()

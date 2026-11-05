@@ -85,8 +85,10 @@ python scripts/review_psp_svd.py
 Adaptive SPOD comparison:
 
 ```bash
-python scripts/psp_spod.py
-python scripts/plot_psp_spod.py
+for polar in 0255 0258 0261; do
+    python scripts/psp_spod.py --polar "$polar"
+    python scripts/plot_psp_spod.py --polar "$polar"
+done
 ```
 
 ## License

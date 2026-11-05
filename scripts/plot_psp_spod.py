@@ -12,15 +12,17 @@ CONFIG=ROOT/'config/psp_spod_study.json'
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--no-tex',action='store_true');parser.add_argument('--output-dir',type=Path)
-    args=parser.parse_args();load_dotenv(ROOT/'.env');config=json.loads(CONFIG.read_text());polar=config['polar']
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--polar',help='PSP polar ID');parser.add_argument('--no-tex',action='store_true');parser.add_argument('--output-dir',type=Path)
+    args=parser.parse_args();load_dotenv(ROOT/'.env');config=json.loads(CONFIG.read_text());polar=args.polar or config['polar']
+    if polar not in config['polars']:raise ValueError('Polar is not included in the study configuration')
+    angle=config['polars'][polar]
     base=configured_path('OUTPUT_DIR')/'psp';working=base/'working/spod'/f'polar_{polar}'
     destination=args.output_dir or base/'exploratory/figures/spod'/f'polar_{polar}';destination.mkdir(parents=True,exist_ok=True)
     records={};rows=[]
     for rank in config['ranks']:
         for tol in config['adaptive_tolerances']:
             path=working/f'rank_{rank}'/f'adaptive_{tol:g}';run=json.loads((path/'run.json').read_text())
-            if run['status']!='complete' or run['polar']!=polar:raise ValueError('Incomplete comparison')
+            if run['status']!='complete' or run['polar']!=polar or run['angle_deg']!=angle:raise ValueError('Incomplete comparison')
             assert run['rank']==rank and run['tolerance']==tol and run['requested_max_tapers']==200 and run['nfft']==3639
             assert sha256(path/'spectra.npz')==run['spectra_sha256']
             with np.load(path/'spectra.npz') as arrays:data={k:arrays[k].copy() for k in arrays.files}
@@ -52,7 +54,7 @@ def main():
             axes[2,column].set_xlabel(r'$St=f c_{\mathrm{MAC}}/U_\infty$')
         for ax in axes.flat:ax.grid(alpha=.2)
         axes[0,0].set_ylabel('Leading SPOD eigenvalue');axes[1,0].set_ylabel('Number of tapers');axes[2,0].set_ylabel('Final leading-mode residual')
-        fig.suptitle(rf'PSP polar {polar}, $\alpha=4^\circ$: adaptive tapering',fontsize=11)
+        fig.suptitle(rf'PSP polar {polar}, $\alpha={angle:g}^\circ$: adaptive tapering',fontsize=11)
         export(fig,destination/'adaptive_rank_comparison');plt.close(fig)
         fig,axes=plt.subplots(3,1,figsize=(WIDTH_MM['double']/25.4,150/25.4),layout='constrained',sharex=True)
         rank_diagnostics=[]
@@ -68,20 +70,23 @@ def main():
             overlap=np.abs(np.sum(first.conj()*second[:,:400],axis=1))**2
             assert np.isfinite(overlap).all() and overlap.min()>=0 and overlap.max()<=1+1e-7
             axes[2].semilogx(a['st'][valid],overlap[valid],color=color,label=label)
-            rank_diagnostics.append({'tolerance':tol,'leading_eigenvalue_relative_change_percent_median':float(np.median(relative[valid])),
+            peak400=1+np.argmax(a['eigvals'][1:,0])
+            rank_diagnostics.append({'tolerance':tol,'rank400_peak_strouhal':float(a['st'][peak400]),
+                'eigenvalue_change_at_rank400_peak_percent':float(relative[peak400]),
+                'leading_mode_overlap_at_rank400_peak':float(overlap[peak400]),'leading_eigenvalue_relative_change_percent_median':float(np.median(relative[valid])),
                 'leading_eigenvalue_relative_change_percent_range':[float(relative[valid].min()),float(relative[valid].max())],
                 'leading_mode_overlap_median':float(np.median(overlap[valid]))})
         axes[0].set_ylabel('Leading SPOD eigenvalue');axes[0].legend(ncol=2,fontsize=8)
-        axes[1].set_ylabel('Eigenvalue change [percent]');axes[2].set_ylabel('Leading-mode overlap');axes[2].set_ylim(0,1.05);axes[2].set_xlabel(r'$St=f c_{\mathrm{MAC}}/U_\infty$')
+        axes[1].set_yscale('symlog',linthresh=10);axes[1].set_ylabel('Eigenvalue change [percent]\n(symmetric log scale)');axes[2].set_ylabel('Leading-mode overlap');axes[2].set_ylim(0,1.05);axes[2].set_xlabel(r'$St=f c_{\mathrm{MAC}}/U_\infty$')
         for ax in axes:ax.grid(alpha=.2)
         export(fig,destination/'rank_sensitivity');plt.close(fig)
-    lines=[f'# PSP polar {polar}: rank and adaptive taper comparison','',
+    lines=[f'# PSP polar {polar} ({angle:g} degrees): rank and adaptive taper comparison','',
         'All 3,639 snapshots; saved Float64, area-weighted SVD; default automatic mask plus five-pixel crop without Mask 2; snapshot spatial and pointwise temporal means removed. Native PAMSPOD reuses the saved factors. Maximum 200 tapers; leading spectra are not normalized between ranks.','',
         '| Rank | Tolerance | Max tapers | At cap [%] | Tolerance met [%] | Peak St | Tapers at peak | Residual at peak |','|---:|---:|---:|---:|---:|---:|---:|---:|']
     for r in rows:lines.append(f'| {r["rank"]} | {r["tolerance"]:g} | {r["max_tapers"]} | {r["cap_hit_percent"]:.2f} | {r["tolerance_met_percent"]:.2f} | {r["peak_strouhal"]:.6g} | {r["tapers_at_peak"]} | {r["residual_at_peak"]:.4g} |')
     lines+=['','Rank-sensitivity curves compare adaptive outcomes at matched requested tolerances; their selected taper counts can differ. Leading-mode overlap is the squared absolute inner product in the common area-orthonormal POD basis, with rank-400 coefficients padded by zeros. Native neighboring-frequency stopping may terminate selection before the requested tolerance is met. No cap hits alone does not demonstrate tolerance convergence. Residual reference lines in the diagnostic figure mark the requested tolerances.','']
     (working/'comparison.md').write_text('\n'.join(lines))
-    (working/'comparison.json').write_text(json.dumps({'polar':polar,'rows':rows,'rank_diagnostics':rank_diagnostics,'config_sha256':sha256(CONFIG),'reference_scales_sha256':sha256(REFERENCE_CONFIG)},indent=2)+'\n')
+    (working/'comparison.json').write_text(json.dumps({'polar':polar,'angle_deg':angle,'rows':rows,'rank_diagnostics':rank_diagnostics,'config_sha256':sha256(CONFIG),'reference_scales_sha256':sha256(REFERENCE_CONFIG)},indent=2)+'\n')
     print(f'Plotted and reviewed all {len(rows)} variants')
 
 if __name__=='__main__':main()
