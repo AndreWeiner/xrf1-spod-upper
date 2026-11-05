@@ -40,7 +40,7 @@ def main():
     labels=[r'$\varepsilon=10^{-4}$',r'$\varepsilon=5\times10^{-5}$',r'$\varepsilon=10^{-5}$']
     style={**STYLE,'text.usetex':config['use_tex'] and not args.no_tex}
     with plt.rc_context(style):
-        fig,axes=plt.subplots(3,2,figsize=(WIDTH_MM['double']/25.4,160/25.4),layout='constrained',sharex=True,sharey='row')
+        fig,axes=plt.subplots(3,len(config['ranks']),squeeze=False,figsize=(WIDTH_MM['double']/25.4,160/25.4),layout='constrained',sharex=True,sharey='row')
         for column,rank in enumerate(config['ranks']):
             for tol,color,line,label in zip(config['adaptive_tolerances'],colors,lines,labels):
                 _,data=records[rank,tol];valid=data['st']>0;st=data['st'][valid]
@@ -49,7 +49,7 @@ def main():
                 residual=data['final_residual'][valid];finite=np.isfinite(residual)&(residual>0)
                 axes[2,column].loglog(st[finite],residual[finite],color=color,ls=line)
                 axes[2,column].axhline(tol,color=color,ls=':',lw=.7,alpha=.6)
-            axes[0,column].set_title(f'POD rank {rank}');axes[0,column].legend(fontsize=8,loc='lower left')
+            axes[0,column].set_title(f'POD rank {rank}');axes[0,column].legend(fontsize=7,loc='lower left')
             axes[1,column].set_ylim(0,205)
             axes[2,column].set_xlabel(r'$St=f c_{\mathrm{MAC}}/U_\infty$')
         for ax in axes.flat:ax.grid(alpha=.2)
@@ -58,25 +58,38 @@ def main():
         export(fig,destination/'adaptive_rank_comparison');plt.close(fig)
         fig,axes=plt.subplots(3,1,figsize=(WIDTH_MM['double']/25.4,150/25.4),layout='constrained',sharex=True)
         rank_diagnostics=[]
+        rank_styles={200:':',400:'-',800:'--'}
+        pairs=list(zip(config['ranks'][:-1],config['ranks'][1:]))
         for tol,color,label in zip(config['adaptive_tolerances'],colors,labels):
-            for rank,line in zip(config['ranks'],['-','--']):
+            for rank in config['ranks']:
                 _,data=records[rank,tol];valid=data['st']>0
-                axes[0].loglog(data['st'][valid],data['eigvals'][valid,0],color=color,ls=line,label=f'{label}, rank {rank}')
-            _,a=records[400,tol];_,b=records[800,tol];valid=a['st']>0
-            assert np.array_equal(a['st'],b['st'])
-            relative=100*(b['eigvals'][:,0]/a['eigvals'][:,0]-1)
-            axes[1].semilogx(a['st'][valid],relative[valid],color=color,label=label)
-            first=a['reduced_modes'][:,:,0];second=b['reduced_modes'][:,:,0]
-            overlap=np.abs(np.sum(first.conj()*second[:,:400],axis=1))**2
-            assert np.isfinite(overlap).all() and overlap.min()>=0 and overlap.max()<=1+1e-7
-            axes[2].semilogx(a['st'][valid],overlap[valid],color=color,label=label)
-            peak400=1+np.argmax(a['eigvals'][1:,0])
-            rank_diagnostics.append({'tolerance':tol,'rank400_peak_strouhal':float(a['st'][peak400]),
-                'eigenvalue_change_at_rank400_peak_percent':float(relative[peak400]),
-                'leading_mode_overlap_at_rank400_peak':float(overlap[peak400]),'leading_eigenvalue_relative_change_percent_median':float(np.median(relative[valid])),
-                'leading_eigenvalue_relative_change_percent_range':[float(relative[valid].min()),float(relative[valid].max())],
-                'leading_mode_overlap_median':float(np.median(overlap[valid]))})
-        axes[0].set_ylabel('Leading SPOD eigenvalue');axes[0].legend(ncol=2,fontsize=8)
+                axes[0].loglog(data['st'][valid],data['eigvals'][valid,0],color=color,ls=rank_styles[rank],label=f'{label}, rank {rank}')
+            for (lower,higher),line in zip(pairs,[':', '--']):
+                _,a=records[lower,tol];_,b=records[higher,tol];valid=a['st']>0
+                assert np.array_equal(a['st'],b['st'])
+                relative=100*(b['eigvals'][:,0]/a['eigvals'][:,0]-1)
+                axes[1].semilogx(a['st'][valid],relative[valid],color=color,ls=line,label=f'{label}, {higher}/{lower}')
+                first=a['reduced_modes'][:,:,0];second=b['reduced_modes'][:,:,0]
+                overlap=np.abs(np.sum(first.conj()*second[:,:lower],axis=1))**2
+                assert np.isfinite(overlap).all() and overlap.min()>=0 and overlap.max()<=1+1e-7
+                axes[2].semilogx(a['st'][valid],overlap[valid],color=color,ls=line)
+                peak=1+np.argmax(a['eigvals'][1:,0])
+                diagnostic={'tolerance':tol,'lower_rank':lower,'higher_rank':higher,
+                    'lower_rank_peak_strouhal':float(a['st'][peak]),
+                    'eigenvalue_change_at_lower_rank_peak_percent':float(relative[peak]),
+                    'leading_mode_overlap_at_lower_rank_peak':float(overlap[peak]),
+                    'leading_eigenvalue_relative_change_percent_median':float(np.median(relative[valid])),
+                    'leading_eigenvalue_relative_change_percent_range':[float(relative[valid].min()),float(relative[valid].max())],
+                    'leading_mode_overlap_median':float(np.median(overlap[valid]))}
+                if lower==400:
+                    diagnostic.update(rank400_peak_strouhal=diagnostic['lower_rank_peak_strouhal'],
+                        eigenvalue_change_at_rank400_peak_percent=diagnostic['eigenvalue_change_at_lower_rank_peak_percent'],
+                        leading_mode_overlap_at_rank400_peak=diagnostic['leading_mode_overlap_at_lower_rank_peak'])
+                rank_diagnostics.append(diagnostic)
+        axes[0].set_ylabel('Leading SPOD eigenvalue');axes[0].legend(ncol=3,fontsize=7)
+        pair_handles,pair_labels=axes[1].get_legend_handles_labels()
+        fig.legend(pair_handles,pair_labels,loc='outside lower center',ncol=3,fontsize=7,
+            title='Rank pairs (higher/lower)',title_fontsize=8,frameon=False)
         axes[1].set_yscale('symlog',linthresh=10);axes[1].set_ylabel('Eigenvalue change [percent]\n(symmetric log scale)');axes[2].set_ylabel('Leading-mode overlap');axes[2].set_ylim(0,1.05);axes[2].set_xlabel(r'$St=f c_{\mathrm{MAC}}/U_\infty$')
         for ax in axes:ax.grid(alpha=.2)
         export(fig,destination/'rank_sensitivity');plt.close(fig)
@@ -84,7 +97,7 @@ def main():
         'All 3,639 snapshots; saved Float64, area-weighted SVD; default automatic mask plus five-pixel crop without Mask 2; snapshot spatial and pointwise temporal means removed. Native PAMSPOD reuses the saved factors. Maximum 200 tapers; leading spectra are not normalized between ranks.','',
         '| Rank | Tolerance | Max tapers | At cap [%] | Tolerance met [%] | Peak St | Tapers at peak | Residual at peak |','|---:|---:|---:|---:|---:|---:|---:|---:|']
     for r in rows:lines.append(f'| {r["rank"]} | {r["tolerance"]:g} | {r["max_tapers"]} | {r["cap_hit_percent"]:.2f} | {r["tolerance_met_percent"]:.2f} | {r["peak_strouhal"]:.6g} | {r["tapers_at_peak"]} | {r["residual_at_peak"]:.4g} |')
-    lines+=['','Rank-sensitivity curves compare adaptive outcomes at matched requested tolerances; their selected taper counts can differ. Leading-mode overlap is the squared absolute inner product in the common area-orthonormal POD basis, with rank-400 coefficients padded by zeros. Native neighboring-frequency stopping may terminate selection before the requested tolerance is met. No cap hits alone does not demonstrate tolerance convergence. Residual reference lines in the diagnostic figure mark the requested tolerances.','']
+    lines+=['','Rank-sensitivity curves compare adaptive outcomes at matched requested tolerances; their selected taper counts can differ. Leading-mode overlap is the squared absolute inner product in the common area-orthonormal POD basis, with the lower-rank coefficients padded by zeros; adjacent-rank comparisons are shown. Native neighboring-frequency stopping may terminate selection before the requested tolerance is met. No cap hits alone does not demonstrate tolerance convergence. Residual reference lines in the diagnostic figure mark the requested tolerances.','']
     (working/'comparison.md').write_text('\n'.join(lines))
     (working/'comparison.json').write_text(json.dumps({'polar':polar,'angle_deg':angle,'rows':rows,'rank_diagnostics':rank_diagnostics,'config_sha256':sha256(CONFIG),'reference_scales_sha256':sha256(REFERENCE_CONFIG)},indent=2)+'\n')
     print(f'Plotted and reviewed all {len(rows)} variants')
