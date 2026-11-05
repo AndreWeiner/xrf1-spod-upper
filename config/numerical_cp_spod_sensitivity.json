@@ -1,0 +1,9 @@
+{
+  "case": "cp",
+  "ranks": [200, 400, 800],
+  "adaptive_tolerances": [0.0001, 0.00005, 0.00001],
+  "adaptive_max_tapers": 200,
+  "threads": 4,
+  "dtype": "float64/complex128",
+  "maximum_variant_seconds": 1800
+}

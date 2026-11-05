@@ -51,6 +51,7 @@ SPOD and spectral comparisons:
 python scripts/surface_spod.py full
 python scripts/plot_taper_comparison.py
 python scripts/compare_cf_spectra.py
+python scripts/numerical_cp_spod_sensitivity.py
 ```
 
 ### PSP data
@@ -89,6 +90,12 @@ for polar in 0255 0258 0261; do
     python scripts/psp_spod.py --polar "$polar"
     python scripts/plot_psp_spod.py --polar "$polar"
 done
+```
+
+### Paper figures
+
+```bash
+python scripts/plot_paper_spod_sensitivity.py
 ```
 
 ## License
