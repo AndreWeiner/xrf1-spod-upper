@@ -2,7 +2,7 @@
   "definition": "St = frequency_hz * mean_aerodynamic_chord_m / inflow_velocity_m_per_s",
   "numerical": {
     "mean_aerodynamic_chord_m": 0.1965,
-    "inflow_velocity_m_per_s": 214.422,
+    "inflow_velocity_m_per_s": 211.446304332802,
     "seconds_per_source_time_unit": 1.0,
     "reference_condition": "4-degree XRF1 case; existing AZDES/reference-notebook convention",
     "source": "analyze_azdes_spod.py and refvalues.py, T_REF[0258]"
