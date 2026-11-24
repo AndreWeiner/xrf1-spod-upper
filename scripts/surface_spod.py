@@ -82,13 +82,20 @@ def calculate(svd, dt, settings, directory):
         record.update(status='failed',error=repr(error));atomic_json(directory/'run.json',record);raise
 
 
+def result_directory(output, case, rank):
+    """Keep original rank-400 sensitivity results separate from selected ranks."""
+    if rank == 400:
+        return output/'working/spod'/case
+    return output/'working/spod_rank_sensitivity'/case/f'rank_{rank}'
+
+
 def plot(output, config):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     destination=output/'exploratory/figures/spod';destination.mkdir(parents=True,exist_ok=True)
     for case in config['cases']:
-        paths=[output/'working/spod'/case/label for label,*_ in variants(config)]
+        paths=[result_directory(output,case,config['selected_ranks'][case])/label for label,*_ in variants(config)]
         if not any((p/'spectra.npz').exists() for p in paths):continue
         with plt.rc_context(STYLE):
             fig,axs=plt.subplots(3,1,figsize=(WIDTH_MM['double']/25.4,155/25.4),layout='constrained',sharex=True)
@@ -133,7 +140,7 @@ def main():
         source=json.loads((saved/'run.json').read_text())
         assert source['status']=='complete' and source['fields']==config['cases'][case]
         selected=config['selected_ranks'][case]
-        destination=output/'working/spod'/case;destination.mkdir(parents=True,exist_ok=True)
+        destination=result_directory(output,case,selected);destination.mkdir(parents=True,exist_ok=True)
         settings=[('fixed_16',False,16,1e-5),('adaptive_0.0001',True,config['adaptive_max_tapers'],1e-4)] if args.stage=='pilot' else variants(config)
         if all(compatible_result(destination/setting[0],saved,selected,setting) for setting in settings):
             print(f'Reusing all completed {case} variants without loading the physical SVD basis',flush=True)

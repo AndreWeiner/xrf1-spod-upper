@@ -221,13 +221,14 @@ def plot_polar(directory,destination,config):
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('stage',choices=['pilot','full','plot']);parser.add_argument('--gate',type=Path)
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('stage',choices=['pilot','full','plot']);parser.add_argument('--gate',type=Path);parser.add_argument('--polar',action='append')
     args=parser.parse_args();load_dotenv(ROOT/'.env',override=False)
     config=json.loads(CONFIG.read_text());torch.set_num_threads(config['threads']);torch.set_num_interop_threads(1)
     output=configured_path('OUTPUT_DIR')/'psp';working=output/'working';working.mkdir(parents=True,exist_ok=True)
     (output/'paper/figures').mkdir(parents=True,exist_ok=True)
     files=([Path(json.loads(p.read_text())['source_file']) for p in sorted(working.glob('polar_*/run.json'))]
            if args.stage=='plot' else sorted(configured_path('PSP_DATA_DIR').glob('*.hdf5')))
+    if args.polar:files=[path for path in files if path.stem in args.polar]
     if not files:raise FileNotFoundError('No PSP polars found')
     if args.stage=='full' and args.gate:
         valid,message=check(args.gate)
@@ -241,14 +242,10 @@ def main():
             continue
         if directory.exists():
             record=json.loads((directory/'run.json').read_text())
-            if record['status']=='complete' and record['config_sha256']==sha256(CONFIG) and record['code_sha256'] in (sha256(Path(__file__)), '1045da305f44242dea7de970bae8f5817cacddf6465bd42bd382cbeb3a2c6850'):
+            if record['status']=='complete' and record['config_sha256']==sha256(CONFIG) and record['code_sha256'] in (sha256(Path(__file__)), 'b5770ea9de846ca3b6b14409255e5375b6b831fc6036a6e1ce559e77372fc75f', '1045da305f44242dea7de970bae8f5817cacddf6465bd42bd382cbeb3a2c6850'):
                 print(f'Reusing complete polar {path.stem}',flush=True);continue
             raise FileExistsError(f'Incompatible/incomplete output: {directory}')
         calculate(path,directory,config,limit=32 if args.stage=='pilot' else None)
-        if args.stage=='full':plot_polar(directory,output/'exploratory/figures'/path.stem,config)
-    if args.stage in ('full','plot'):
-        from review_psp import summarize
-        summarize(output,config)
     print(f'PSP {args.stage} stage complete.',flush=True)
 
 if __name__=='__main__':main()

@@ -8,7 +8,8 @@
   "adaptive_tolerances": [
     0.0001,
     5e-05,
-    1e-05
+    1e-05,
+    5e-06
   ],
   "adaptive_max_tapers": 200,
   "threads": 4,
@@ -18,7 +19,19 @@
   "use_tex": true,
   "polars": {
     "0255": 1.5,
+    "0256": 3.0,
+    "0257": 3.5,
     "0258": 4.0,
-    "0261": 6.0
-  }
+    "0259": 4.5,
+    "0260": 5.0,
+    "0261": 6.0,
+    "0262": 4.0
+  },
+  "selected_rank": 200,
+  "selected_tolerance": 1e-05,
+  "comparison_tolerances": [
+    0.0001,
+    5e-05,
+    1e-05
+  ]
 }

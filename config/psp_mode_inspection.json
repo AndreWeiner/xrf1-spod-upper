@@ -1,0 +1,7 @@
+{
+  "polars": ["0257", "0258", "0259", "0260", "0261"],
+  "target_strouhal": [0.1, 0.14, 0.18, 0.22, 0.26, 0.3],
+  "mode_number": 1,
+  "phase_display_minimum_relative_magnitude": 0.05,
+  "size_mm": [240, 245]
+}

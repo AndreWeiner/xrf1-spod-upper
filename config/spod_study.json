@@ -31,9 +31,9 @@
   ],
   "adaptive_max_tapers": 200,
   "selected_ranks": {
-    "cp": 400,
-    "cf_xy": 400,
-    "cf_xyz": 400
+    "cp": 200,
+    "cf_xy": 200,
+    "cf_xyz": 200
   },
   "threads": 4,
   "spatial_batch_size": 16384,

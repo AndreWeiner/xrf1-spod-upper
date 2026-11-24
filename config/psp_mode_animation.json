@@ -1,0 +1,7 @@
+{
+  "frames_per_period": 48,
+  "frames_per_second": 24,
+  "video_dpi": 100,
+  "single_size_inches": [4.0, 4.8],
+  "threads": 4
+}

@@ -38,8 +38,8 @@ def main():
     assert source['subtract_snapshot_spatial_mean'] and source['subtract_pointwise_temporal_mean']
     assert source['config']['domain']=={'automatic_mask':'p5_t10','patch_size':5,'threshold':10.,'temporal_reduction':'max','crop_pixels_each_edge':5,'native_mask':None}
     assert sha256(saved/'checkpoint/metadata.pt')==source['checkpoint_metadata_sha256']
-    ranks=[args.rank] if args.rank is not None else config['ranks']
-    tolerances=[args.tolerance] if args.tolerance is not None else config['adaptive_tolerances']
+    ranks=[args.rank] if args.rank is not None else [config['selected_rank']]
+    tolerances=[args.tolerance] if args.tolerance is not None else [config['selected_tolerance']]
     if not set(ranks)<=set(config['ranks']) or not set(tolerances)<=set(config['adaptive_tolerances']):raise ValueError('Requested variant not in study configuration')
     destination=base/'working/spod'/f'polar_{polar}';destination.mkdir(parents=True,exist_ok=True)
     settings=[(rank,(f'adaptive_{tol:g}',True,config['adaptive_max_tapers'],tol)) for rank in ranks for tol in tolerances]

@@ -136,6 +136,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('stage', choices=['pilot','full','plot'])
     parser.add_argument('--gate', type=Path)
+    parser.add_argument('--case', choices=['cp', 'cf_xy', 'cf_xyz'])
     parser.add_argument('--no-tex', action='store_true', help='Explicitly opt out of LaTeX rendering')
     args=parser.parse_args()
     load_dotenv(ROOT/'.env', override=False)
@@ -161,6 +162,8 @@ def main():
         weights=loader.weights
         if not bool(torch.isfinite(weights).all() and (weights>0).all()): raise ValueError('Invalid area weights')
         cases = {'cf_xyz':config['cases']['cf_xyz']} if args.stage=='pilot' else config['cases']
+        if args.case:
+            cases = {args.case: config['cases'][args.case]}
         for case,fields in cases.items():
             directory=(output/'working/preflight/pilot') if args.stage=='pilot' else working/case
             if directory.exists():
@@ -168,7 +171,7 @@ def main():
                 if (args.stage == 'full' and previous.get('status') == 'complete'
                     and previous.get('input_hashes') == conversion['outputs']
                     and previous.get('config_sha256') == sha256(CONFIG)
-                    and previous.get('code_sha256') in (sha256(Path(__file__)), '80569dbd635548e90e80f63be1f6412b0fface8e6e2406f0d3be73e9d676fcbb')):
+                    and previous.get('code_sha256') in (sha256(Path(__file__)), '451d83c1752d9a2cf9f4278f47890a935b9327c68ce743a60aedcbdb140134db', '80569dbd635548e90e80f63be1f6412b0fface8e6e2406f0d3be73e9d676fcbb')):
                     print(f'Reusing completed {case} SVD', flush=True)
                     continue
                 raise FileExistsError(f'Existing incomplete or incompatible run: {directory}')
@@ -207,10 +210,10 @@ def main():
                     finished_utc=datetime.now(timezone.utc).isoformat())
                 save_json(directory/'run.json',record)
                 print(json.dumps({k:record[k] for k in ['case','status','resolved_rank','ranks_for_energy_fraction','total_seconds','peak_rss_bytes']}),flush=True)
-                if args.stage=='full': plot_spectra(working,figures,use_tex)
+                if args.stage=='full' and not args.case: plot_spectra(working,figures,use_tex)
             except BaseException as error:
                 record.update(status='failed',error=repr(error));save_json(directory/'run.json',record);raise
-    if args.stage=='full':
+    if args.stage=='full' and not args.case:
         summary={case:json.loads((working/case/'run.json').read_text()) for case in config['cases']}
         save_json(working/'rank_review.json',summary)
         print('SVD rank review is ready. SPOD sweep awaits fixed rank selection.',flush=True)

@@ -16,9 +16,7 @@ The article is a collaborative effort between the [**Institute of Aerodynamics a
 
 ## Reproducibility
 
-### Setup
-
-Use Python 3.14.6 and LaTeX. Run from the repository root:
+Use Python 3.14.6, LaTeX, and FFmpeg. Run from the repository root.
 
 ```bash
 python3.14 -m venv .venv
@@ -28,74 +26,64 @@ python -m pip install -r requirements-lock.txt
 cp .env.example .env
 ```
 
-Set `PLT_DATA_DIR`, `PSP_DATA_DIR` and `OUTPUT_DIR` in `.env`. Run each section in order, starting with an empty output directory.
+Set `PLT_DATA_DIR`, `PSP_DATA_DIR`, and `OUTPUT_DIR` in `.env`. Use an empty output directory for a full rebuild. With the saved analysis results, start at **Reproduce figures**.
 
-### Numerical data
-
-Surface conversion:
+### Prepare data and compute SPOD
 
 ```bash
 python scripts/convert_surface.py --zones wing-upper --fields cp cfx cfy cfz
-```
-
-SVD and statistics plots:
-
-```bash
-python scripts/svd_study.py full
-python scripts/review_svd.py
-```
-
-SPOD and spectral comparisons:
-
-```bash
-python scripts/surface_spod.py full
-python scripts/plot_taper_comparison.py
-python scripts/compare_cf_spectra.py
-python scripts/numerical_cp_spod_sensitivity.py
-```
-
-### PSP data
-
-Statistics and masking comparison:
-
-```bash
-python scripts/psp_study.py full
-python scripts/review_psp.py
-python scripts/psp_global_statistics.py
-python scripts/psp_default_crop_statistics.py
-python scripts/psp_automatic_crop5_statistics.py
-python scripts/plot_psp_global_statistics.py
-```
-
-Spatial-mean histories and spectra:
-
-```bash
-python scripts/plot_psp_means.py
-python scripts/review_psp_trends.py
-python scripts/compare_psp_mean_spectra.py
-python scripts/update_strouhal_coordinates.py
-```
-
-SVD and rank plots:
-
-```bash
+python scripts/svd_study.py full --case cp
+python scripts/psp_study.py full --polar 0257 --polar 0258 --polar 0259 --polar 0260 --polar 0261
 python scripts/psp_svd.py full
-python scripts/review_psp_svd.py
-```
-
-Adaptive SPOD comparison:
-
-```bash
-for polar in 0255 0258 0261; do
+for polar in 0257 0258 0259 0260 0261; do
     python scripts/psp_spod.py --polar "$polar"
-    python scripts/plot_psp_spod.py --polar "$polar"
+done
+for polar in 0258 0261; do
+    for rank in 400 800; do
+        python scripts/psp_spod.py --polar "$polar" --rank "$rank" --tolerance 5e-5
+    done
+    for tolerance in 1e-4 5e-5 5e-6; do
+        python scripts/psp_spod.py --polar "$polar" --rank 200 --tolerance "$tolerance"
+    done
+done
+for rank in 400 800; do
+    python scripts/numerical_cp_spod_sensitivity.py --rank "$rank" --tolerance 5e-5
+done
+for tolerance in 1e-4 5e-5 1e-5; do
+    python scripts/numerical_cp_spod_sensitivity.py --rank 200 --tolerance "$tolerance"
 done
 ```
 
-### Paper figures
+### Reproduce figures
 
 ```bash
+python scripts/plot_paper_psp_masks.py
 python scripts/plot_paper_spod_sensitivity.py
+python scripts/plot_paper_spod_overview.py
+python scripts/plot_eigenvalue_ratio.py
+python scripts/mode_similarity_study.py
+python scripts/plot_paper_mode_similarity.py
+python scripts/plot_mode_branch_similarity.py
+python scripts/extract_psp_mean_shocks.py --spline-rms-mm 1.0
+python scripts/extract_psp_trailing_edge.py
+python scripts/prepare_numerical_overview.py
+python scripts/plot_paper_psp_moments.py
+python scripts/plot_shock_front_comparison.py
+python scripts/plot_full_chord_mode_energy.py --span-integrated-peak --muted
+python scripts/plot_band_mode_magnitude.py --log-color --eigenvalue-weighted
+python scripts/dense_displacement_directional.py
+python scripts/azdes_surface_band_speed.py --minimum-slope 4
+python scripts/plot_surface_band_all_angles.py --minimum-slope 4 --span-min 0.45
+python scripts/plot_mean_band_speed.py --normalize --linear-fits --angle-summary
+python scripts/plot_a4_real_modes.py
+```
+
+### Reproduce mode animations
+
+```bash
+python scripts/plot_a4_real_modes.py --animate
+python scripts/plot_psp_mode_inspection.py --quantity real
+python scripts/animate_psp_modes.py
 ```
 
 ## License

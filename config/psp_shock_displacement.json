@@ -1,0 +1,10 @@
+{
+  "polar": "0258",
+  "span_min": 0.4,
+  "normal_band_half_widths_m": [0.002, 0.004, 0.006],
+  "selected_half_width_m": 0.004,
+  "normal_samples": 61,
+  "mean_and_mode_smoothing_sigma_pixels": 2.0,
+  "smoothing_truncate": 3.0,
+  "phase_display_amplitude_fraction": 0.05
+}
