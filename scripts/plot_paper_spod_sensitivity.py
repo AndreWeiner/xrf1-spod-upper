@@ -29,9 +29,11 @@ def read_spectrum(path,*,rank,adaptive,tolerance=None,tapers=None):
 
 
 def psp_figure(output,style,destination=None):
-    tolerances=TOLERANCES+[5e-6]
-    tolerance_labels=TOLERANCE_LABELS+[r'$\varepsilon=5\times10^{-6}$']
+    tolerances=TOLERANCES
+    tolerance_labels=TOLERANCE_LABELS
     base=output/'psp';destination=destination or base/'paper/figures'
+    snapshots={polar:json.loads((base/f'working/svd/polar_{polar}/run.json').read_text())['snapshots'] for polar,_ in [('0258',4),('0261',6)]}
+    assert len(set(snapshots.values()))==1
     destination.mkdir(parents=True,exist_ok=True);inputs={};curves={}
     # Each panel contains actual saved spectra, without smoothing or normalization.
     for polar,angle in [('0258',4),('0261',6)]:
@@ -39,7 +41,7 @@ def psp_figure(output,style,destination=None):
         for rank,tol in sorted(selections):
             path=base/'working/spod'/f'polar_{polar}'/f'rank_{rank}'/f'adaptive_{tol:g}'
             record,frequency,leading,fingerprint=read_spectrum(path,rank=rank,adaptive=True,tolerance=tol,tapers=200)
-            assert record['polar']==polar and record['angle_deg']==angle and record['nfft']==3639
+            assert record['polar']==polar and record['angle_deg']==angle and record['nfft']==snapshots[polar]
             st=strouhal(frequency,'psp',polar);valid=st>0
             if not (leading[valid]>0).all():raise ValueError('Log plot requires positive leading eigenvalues')
             curves[polar,rank,tol]=(st[valid],leading[valid])
@@ -50,7 +52,7 @@ def psp_figure(output,style,destination=None):
     with plt.rc_context(style):
         fig,axes=plt.subplots(2,2,figsize=(WIDTH_MM['double']/25.4,120/25.4),sharex=True,sharey=True,layout='constrained')
         rank_styles=CURVE_STYLES
-        tolerance_styles=CURVE_STYLES+[('C3',':')]
+        tolerance_styles=CURVE_STYLES
         for column,(polar,angle) in enumerate([('0258',4),('0261',6)]):
             for rank,(color,line) in zip(RANKS,rank_styles):
                 st,values=curves[polar,rank,5e-5]
@@ -62,8 +64,8 @@ def psp_figure(output,style,destination=None):
             axes[1,column].set_title(rf'({chr(99+column)}) $\alpha={angle:.1f}^\circ$, $r=200$')
         for ax in axes.flat:
             ax.grid(alpha=.18,which='major');ax.legend(loc='lower left',fontsize=9,framealpha=.95,edgecolor='0.85')
-        fig.supxlabel(r'$St$',fontsize=STYLE['axes.labelsize'])
-        fig.supylabel(r'$\lambda_1$',fontsize=STYLE['axes.labelsize'])
+        fig.supxlabel(r'$St$ [-]',fontsize=STYLE['axes.labelsize'])
+        fig.supylabel(r'$\lambda_1$ [-]',fontsize=STYLE['axes.labelsize'])
         all_x=np.concatenate([x for x,_ in curves.values()]);all_y=np.concatenate([y for _,y in curves.values()])
         axes[0,0].set_xlim(all_x.min(),all_x.max());axes[0,0].set_ylim(all_y.min()/1.18,all_y.max()*1.25)
         stem=destination/'psp_spod_sensitivity';export(fig,stem);plt.close(fig)
@@ -72,11 +74,11 @@ def psp_figure(output,style,destination=None):
                   'b':{'polar':'0261','alpha_deg':6,'ranks':RANKS,'tolerance':5e-5},
                   'c':{'polar':'0258','alpha_deg':4,'rank':200,'tolerances':tolerances},
                   'd':{'polar':'0261','alpha_deg':6,'rank':200,'tolerances':tolerances}},
-        'maximum_tapers':200,'snapshot_count_per_polar':3639,
+        'maximum_tapers':200,'snapshot_count_per_polar':snapshots['0258'],
         'preprocessing':'snapshot weighted spatial mean and pointwise temporal mean removed; existing geometric nodal areas; automatic patch5 threshold10 max mask plus crop5 without Mask2',
         'axis_scales':'log-log; common limits in all panels',
         'normalization':'none','data_transform':'frequency converted to per-polar Strouhal; DC excluded; no smoothing/decimation',
-        'palette':'Matplotlib C0/C1/C2/C3 in legend order','shared_axis_labels':{'x':'St','y':'lambda_1'},'rendering':'LaTeX' if style['text.usetex'] else 'mathtext',
+        'palette':'Matplotlib C0/C1/C2 in legend order','shared_axis_labels':{'x':'St [-]','y':'lambda_1 [-]'},'rendering':'LaTeX' if style['text.usetex'] else 'mathtext',
         'source_sha256':sha256(Path(__file__)),'reference_scales_sha256':sha256(REFERENCE_CONFIG),'inputs':inputs}
     stem.with_suffix('.json').write_text(json.dumps(metadata,indent=2)+'\n')
     print(stem.with_suffix('.pdf'))
@@ -85,12 +87,13 @@ def psp_figure(output,style,destination=None):
 def numerical_figure(output,style,destination=None):
     from numerical_cp_spod_sensitivity import result_path
     destination=destination or output/'analysis/paper/figures';destination.mkdir(parents=True,exist_ok=True)
+    snapshots=json.loads((output/'analysis/working/svd/cp/run.json').read_text())['snapshots']
     inputs={};curves={}
     selections={(r,5e-5) for r in RANKS}|{(200,t) for t in TOLERANCES}
     for rank,tol in sorted(selections):
         path=result_path(output,rank,tol)
         record,frequency,leading,fingerprint=read_spectrum(path,rank=rank,adaptive=True,tolerance=tol,tapers=200)
-        assert record['nfft']==1310
+        assert record['nfft']==snapshots
         st=strouhal(frequency,'numerical');valid=st>0
         if not (leading[valid]>0).all():raise ValueError('Log plot requires positive leading eigenvalues')
         curves[rank,tol]=(st[valid],leading[valid]);inputs[str(path.relative_to(output))]=fingerprint
@@ -106,8 +109,8 @@ def numerical_figure(output,style,destination=None):
             st,values=curves[200,tol]
             axes[1].loglog(st,values,color=color,ls=line,label=label)
         axes[0].set_title(r'(a) $\varepsilon=5\times10^{-5}$');axes[1].set_title(r'(b) $r=200$')
-        fig.supxlabel(r'$St$',fontsize=STYLE['axes.labelsize'])
-        fig.supylabel(r'$\lambda_1$',fontsize=STYLE['axes.labelsize'])
+        fig.supxlabel(r'$St$ [-]',fontsize=STYLE['axes.labelsize'])
+        fig.supylabel(r'$\lambda_1$ [-]',fontsize=STYLE['axes.labelsize'])
         all_x=np.concatenate([x for x,_ in curves.values()]);all_y=np.concatenate([y for _,y in curves.values()])
         axes[0].set_xlim(all_x.min(),all_x.max());axes[0].set_ylim(all_y.min()/1.18,all_y.max()*1.25)
         for ax in axes:
@@ -116,10 +119,10 @@ def numerical_figure(output,style,destination=None):
         stem=destination/'numerical_cp_spod_sensitivity';export(fig,stem);plt.close(fig)
     metadata={'figure':'Numerical Cp leading-eigenvalue rank and tolerance sensitivity','size_mm':[180,70],
         'panels':{'a':{'ranks':RANKS,'tolerance':5e-5},'b':{'rank':200,'tolerances':TOLERANCES}},
-        'maximum_tapers':200,'snapshot_count':1310,'preprocessing':'temporal mean removed; snapshot spatial mean retained; inherited geometric area weights',
+        'maximum_tapers':200,'snapshot_count':snapshots,'preprocessing':'temporal mean removed; snapshot spatial mean retained; inherited geometric area weights',
         'axis_scales':'log-log; common limits','normalization':'none',
         'data_transform':'frequency converted to numerical Strouhal; DC excluded; no smoothing/decimation',
-        'palette':'Matplotlib C0/C1/C2 in legend order','shared_axis_labels':{'x':'St','y':'lambda_1'},
+        'palette':'Matplotlib C0/C1/C2 in legend order','shared_axis_labels':{'x':'St [-]','y':'lambda_1 [-]'},
         'rendering':'LaTeX' if style['text.usetex'] else 'mathtext','source_sha256':sha256(Path(__file__)),
         'reference_scales_sha256':sha256(REFERENCE_CONFIG),'inputs':inputs}
     stem.with_suffix('.json').write_text(json.dumps(metadata,indent=2)+'\n');print(stem.with_suffix('.pdf'))
