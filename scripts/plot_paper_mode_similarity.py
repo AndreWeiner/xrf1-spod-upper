@@ -61,15 +61,16 @@ def draw(output, destination, upper, no_tex=False, levels=None):
             ax.set(xlim=(.1,upper),ylim=(.1,upper),aspect='equal',xlabel='',ylabel='')
             ticks=[.1,.3,.5,.7] if upper==.7 else [v for v in [.1,.15,.2,.25,.3,.35] if v<=upper]
             ax.set_xticks(ticks);ax.set_yticks(ticks)
+            ax.grid(alpha=.4, linestyle=':', linewidth=.8)
             ax.set_title(rf'({chr(97+index)}) {label}, $\alpha={angle:.1f}^\circ$',fontsize=9)
             inputs.append({'case':key,'angle_deg':angle,'source_sha256':record['sha256'],
                            'record_sha256':sha256(path.with_suffix('.json')),
                            'displayed_frequency_bins':int(keep.sum()),
                            'symmetry_max_error':float(np.max(abs(matrix-matrix.T))),
                            'diagonal_max_error':float(np.max(abs(matrix.diagonal()-1)))})
-        fig.supxlabel(r'$St_1$',fontsize=STYLE['axes.labelsize'])
-        fig.supylabel(r'$St_2$',fontsize=STYLE['axes.labelsize'])
-        fig.colorbar(axes.flat[0].collections[0],ax=list(axes.flat),label=r'$\rho$',shrink=.85,
+        fig.supxlabel(r'$St_1$ [-]',fontsize=STYLE['axes.labelsize'])
+        fig.supylabel(r'$St_2$ [-]',fontsize=STYLE['axes.labelsize'])
+        fig.colorbar(axes.flat[0].collections[0],ax=list(axes.flat),label=r'$\rho$ [-]',shrink=.85,
                      ticks=boundaries if levels else [0,.2,.4,.6,.8,1])
         name='spod_mode_self_similarity' if upper==.7 else ('spod_mode_self_similarity_zoom_01_03' if upper==.3 else 'spod_mode_self_similarity_zoom_01_035')
         if levels:name+=f'_discrete_{levels}'
@@ -78,7 +79,7 @@ def draw(output, destination, upper, no_tex=False, levels=None):
         plt.close(fig)
     report = {'status':'pass','size_mm':[180,120],'inputs':inputs,
               'definition':'FlowTorch absolute normalized area-weighted inner product, not squared; leading mode against itself across frequencies',
-              'display':'one triangular half excluding unit diagonal; no smoothing, interpolation or eigenvalue scaling',
+              'display':'one triangular half excluding unit diagonal; no smoothing, interpolation or eigenvalue scaling; dotted grid at major ticks',
               'strouhal_limits':[.1,upper],'color_limits':[0,1],'color_normalization':'discrete uniform bins' if levels else 'linear','color_levels':levels,'color_boundaries':boundaries.tolist() if levels else None,
               'validation':'Input file hashes, matrix symmetry and unit diagonals checked; native plotted mask and every displayed value verified against saved matrices',
               'use_tex':not no_tex,'script_sha256':sha256(Path(__file__)),
