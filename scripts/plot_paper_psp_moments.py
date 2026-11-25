@@ -68,7 +68,7 @@ def main():
     from matplotlib.patches import Patch
     destination = args.output_dir or configured_path('OUTPUT_DIR')/'psp/paper/figures'
     destination.mkdir(parents=True, exist_ok=True)
-    norms = [Normalize(-1.5, .3), Normalize(0, .09)]
+    norms = [Normalize(-1.5, .1), Normalize(0, .03)]
     with plt.rc_context({**STYLE, 'text.usetex': not args.no_tex}):
         fig = plt.figure(figsize=(WIDTH_MM['double']/25.4, 295/25.4))
         # Overlap empty corners of successive planform bounding boxes so the
@@ -83,7 +83,7 @@ def main():
                 horizontal = -span if col == 0 else span
                 field = np.ma.masked_invalid(case[name])
                 artist=ax.pcolormesh(horizontal, -chord, field, shading='nearest',
-                    cmap='viridis' if col == 0 else 'magma', norm=norms[col], rasterized=True)
+                    cmap='RdBu_r' if col == 0 else 'magma', norm=norms[col], rasterized=True)
                 overlay=np.ma.masked_where(case['keep'], np.ones(case['keep'].shape))
                 if case['dataset'] == 'PSP':
                     ax.pcolormesh(horizontal, -chord, overlay, shading='nearest',
@@ -109,13 +109,13 @@ def main():
                     tip_y = float((-chord)[tip])
                     ax.text(tip_x + .025, tip_y + .085,
                             rf'$\alpha={case["angle"]:.1f}^\circ$ ({case["dataset"]})',
-                            rotation=30, rotation_mode='anchor', ha='left', va='bottom')
-        for col,label in enumerate([r'$\mathrm{mean}(c_p)$',r'$\mathrm{var}(c_p)$']):
-            cax=fig.add_axes([.065+col*.49,.050,.375,.008])
-            cb=fig.colorbar(plt.cm.ScalarMappable(norm=norms[col],cmap='viridis' if col==0 else 'magma'),cax=cax,orientation='horizontal',extend='both' if col==0 else 'max')
-            cb.set_label(label); cb.ax.tick_params(labelsize=9)
-            cb.set_ticks([-1.5, 0, .3] if col == 0 else [0, .09])
-            cb.set_ticklabels(['low', '0', 'high'] if col == 0 else ['0', 'high'])
+                            rotation=30, rotation_mode='anchor', ha='left', va='bottom', fontsize=14)
+        for col,label in enumerate([r'$\mathrm{mean}(c_p)$ [-]',r'$\mathrm{var}(c_p)$ [-]']):
+            cax=fig.add_axes([.065+col*.49,.078,.375,.008])
+            cb=fig.colorbar(plt.cm.ScalarMappable(norm=norms[col],cmap='RdBu_r' if col==0 else 'magma'),cax=cax,orientation='horizontal',extend='both' if col==0 else 'max')
+            cb.set_label(label)
+            cb.set_ticks([-1.5, .1] if col == 0 else [0, .03])
+            cb.set_ticklabels(['low', 'high'] if col == 0 else ['0', 'high'])
         fig.legend(handles=[Patch(facecolor='0.85',edgecolor='0.5',label='White overlay: excluded from analysis')],loc='lower center',bbox_to_anchor=(.5,0),frameon=False)
         stem=destination/'psp_moments_masked'
         export(fig,stem); plt.close(fig)
@@ -123,7 +123,7 @@ def main():
         definition='Unrepaired full-record temporal mean and variance; no spatial smoothing; native coordinate cells.',
         mask='Automatic p5_t10, full-record maximum reduction, plus five-pixel crop on all edges; no native Mask 2',
         mask_alpha=args.mask_alpha, mask_overlay_columns=['mean', 'variance'], size_mm=[180,295],use_tex=not args.no_tex,
-        color_limits={'mean':[-1.5,.3],'variance':[0,.09]},
+        color_limits={'mean':[-1.5,.1],'variance':[0,.03]},
         excluded_fraction={c['polar']:float((~c['keep']).mean()) for c in cases},
         numerical_preparation_sha256=sha256(numerical_dir/'preparation.json'),
         row_datasets=[c['dataset'] for c in cases],
