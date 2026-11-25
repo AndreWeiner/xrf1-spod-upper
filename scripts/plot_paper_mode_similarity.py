@@ -16,7 +16,7 @@ CASES = [('0257', 'PSP', 3.5), ('0258', 'PSP', 4), ('azdes', 'AZDES', 4),
          ('0259', 'PSP', 4.5), ('0260', 'PSP', 5), ('0261', 'PSP', 6)]
 
 
-def draw(output, destination, upper, no_tex=False, levels=None):
+def draw(output, destination, upper, no_tex=False, levels=None, cmap=None):
     working = output/'analysis/working/mode_similarity'
     destination.mkdir(parents=True, exist_ok=True)
     inputs = []
@@ -45,9 +45,10 @@ def draw(output, destination, upper, no_tex=False, levels=None):
             selected = matrix[np.ix_(keep,keep)].copy()
             plot_mode_similarity(torch.from_numpy(coordinate),torch.from_numpy(coordinate),
                                  torch.from_numpy(selected),triangle='lower',ax=ax,
-                                 show_colorbar=False,mesh_kwargs={'rasterized':True,'vmin':0.,'vmax':1.})
+                                 show_colorbar=False,cmap=cmap or 'viridis',
+                                 mesh_kwargs={'rasterized':True,'vmin':0.,'vmax':1.})
             if levels:
-                ax.collections[0].set_cmap(plt.get_cmap('viridis',levels))
+                ax.collections[0].set_cmap(plt.get_cmap(cmap or 'viridis',levels))
                 ax.collections[0].set_norm(BoundaryNorm(boundaries,levels))
             displayed = ax.collections[0].get_array()
             expected = selected.T
@@ -80,7 +81,7 @@ def draw(output, destination, upper, no_tex=False, levels=None):
     report = {'status':'pass','size_mm':[180,120],'inputs':inputs,
               'definition':'FlowTorch absolute normalized area-weighted inner product, not squared; leading mode against itself across frequencies',
               'display':'one triangular half excluding unit diagonal; no smoothing, interpolation or eigenvalue scaling; dotted grid at major ticks',
-              'strouhal_limits':[.1,upper],'color_limits':[0,1],'color_normalization':'discrete uniform bins' if levels else 'linear','color_levels':levels,'color_boundaries':boundaries.tolist() if levels else None,
+              'strouhal_limits':[.1,upper],'color_limits':[0,1],'colormap':cmap or 'viridis','color_normalization':'discrete uniform bins' if levels else 'linear','color_levels':levels,'color_boundaries':boundaries.tolist() if levels else None,
               'validation':'Input file hashes, matrix symmetry and unit diagonals checked; native plotted mask and every displayed value verified against saved matrices',
               'use_tex':not no_tex,'script_sha256':sha256(Path(__file__)),
               'flowtorch_plot_sha256':sha256(Path(inspect.getfile(inspect.unwrap(plot_mode_similarity))))}
@@ -91,6 +92,7 @@ def draw(output, destination, upper, no_tex=False, levels=None):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--levels',type=int,help='Number of discrete color bands; default continuous')
+    parser.add_argument('--cmap',default=None,help='Matplotlib colormap name; default viridis')
     parser.add_argument('--zoom-upper',type=float,choices=[.3,.35],default=.35)
     parser.add_argument('--no-tex',action='store_true')
     parser.add_argument('--output-dir',type=Path)
@@ -99,7 +101,7 @@ def main():
     output=configured_path('OUTPUT_DIR')
     destination=args.output_dir or output/'paper/figures'
     for upper in [.7,args.zoom_upper]:
-        draw(output,destination,upper,args.no_tex,args.levels)
+        draw(output,destination,upper,args.no_tex,args.levels,args.cmap)
 
 
 if __name__=='__main__':
