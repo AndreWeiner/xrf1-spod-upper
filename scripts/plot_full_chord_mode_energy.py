@@ -2,6 +2,7 @@
 import argparse
 import json
 import h5py
+import hdf5plugin  # Registers the compressed geometry filters.
 import numpy as np
 import torch
 from dotenv import load_dotenv
@@ -75,7 +76,8 @@ def main():
     working = output/'psp/working/spanwise_mode_energy'
     working.mkdir(parents=True,exist_ok=True)
     destination = output/'psp/exploratory/figures/spanwise_mode_energy'
-    destination.mkdir(parents=True,exist_ok=True)
+    paper_destination = output/'psp/paper/figures/spanwise_mode_energy'
+    destination.mkdir(parents=True,exist_ok=True);paper_destination.mkdir(parents=True,exist_ok=True)
     edges = np.linspace(.45,1,45)
     cases = {key:compute(output,working,key,edges) for key in CASES}
     # Use the established dataset references from the spectral comparison.
@@ -101,7 +103,7 @@ def main():
     for upper,tag in [(.35,'035'),(.7,'070')]:
         with plt.rc_context(STYLE):
             fig,axes = plt.subplots(2,3,sharex=True,sharey=True,figsize=(240/25.4,145/25.4),layout='constrained')
-            annotations = {}
+            annotations = {};energy_axes=[]
             for panel,(ax,key) in enumerate(zip(axes.flat,CASES)):
                 st = cases[key][0]
                 keep = st<=upper
@@ -121,6 +123,7 @@ def main():
                     local_st = st[search[j]]
                     local_eta = (edges[i]+edges[i+1])/2
                     energy_ax = ax.twinx()
+                    energy_axes.append(energy_ax)
                     energy_ax.patch.set_visible(False)
                     energy_ax.grid(False)
                     energy_ax.plot(freq,integrated[keep],color='C3',lw=1.15,zorder=5)
@@ -178,7 +181,8 @@ def main():
                                         'outlined_energy_fraction':float(mass[selected].sum()/mass.sum())}
                 label = r'AZDES $\alpha=4.0^\circ$' if key=='azdes' else rf'PSP $\alpha={POLARS[key]:.1f}^\circ$'
                 ax.set(title=label,xlim=(.1,upper),ylim=(.45,1))
-            fig.colorbar(mesh,ax=list(axes.flat),extend='both',label='Segment modal energy / reference eigenvalue')
+            cbar=fig.colorbar(mesh,ax=list(axes.flat),extend='both',label='Segment modal energy / reference eigenvalue')
+            xlabels=[]
             if args.mark_concentration:
                 fig.legend(handles=[
                     Line2D([],[],color='.35',ls='--',label=r'$St=0.20$'),
@@ -187,6 +191,7 @@ def main():
                     loc='outside lower center',ncol=3,frameon=False,fontsize=8)
                 for ax in axes[-1]:
                     ax.set_xlabel(r'$St$')
+                xlabels.extend(ax.xaxis.label for ax in axes[-1])
             elif args.span_integrated_peak:
                 fig.legend(handles=[
                     Line2D([],[],color='C3',label='Span-integrated energy (right axis)'),
@@ -195,10 +200,11 @@ def main():
                     loc='outside lower center',ncol=2,frameon=False,fontsize=8)
                 for ax in axes[-1]:
                     ax.set_xlabel(r'$St$')
+                xlabels.extend(ax.xaxis.label for ax in axes[-1])
             else:
-                fig.supxlabel(r'$St$')
-            fig.supylabel(r'Measured span $\eta$')
-            fig.suptitle('Full-chord leading SPOD modal energy')
+                xlabels.append(fig.supxlabel(r'$St$'))
+            supylabel_text=fig.supylabel(r'Measured span $\eta$')
+            suptitle_text=fig.suptitle('Full-chord leading SPOD modal energy')
             stem = destination/f'psp_azdes_full_chord_modal_energy_01_{tag}_span45'
             if args.mark_concentration:
                 stem = stem.with_name(stem.name+('_marked90_buffered_peak' if args.buffered_peak else '_marked90'))
@@ -207,8 +213,8 @@ def main():
             if args.muted:
                 stem = stem.with_name(stem.name+'_muted')
             export(fig,stem)
-            plt.close(fig)
-            stem.with_suffix('.json').write_text(json.dumps({
+            def report(stem):
+                stem.with_suffix('.json').write_text(json.dumps({
                 'inputs':{key:cases[key][3] for key in CASES},'reference_eigenvalues':peaks,
                 'reference':'Peak leading eigenvalue within St 0.2 to 0.7. Shared PSP 4.0 reference for PSP and separate AZDES reference.',
                 'method':'Leading eigenvalue times the area-weighted squared mode norm within each full-chord span segment. Original PSP retained points and native numerical surface points.',
@@ -219,7 +225,24 @@ def main():
                     {'minimum_St':.25,'sigma_St':.01,'maximum_St':.7} if args.buffered_peak else None
                 ),
                 'energy_annotations':annotations,'span_edges':edges.tolist(),'color_limits':[float(lo),float(hi)],'colormap':cmap.name
-            },indent=2)+'\n')
+                },indent=2)+'\n')
+            report(stem)
+            # Paper variant: same data with the modified labelling.
+            supylabel_text.set_visible(False);suptitle_text.set_visible(False)
+            for artist in xlabels:artist.set_text(artist.get_text()+' [-]')
+            for ax in axes[-1]:ax.set_xticks(np.unique(np.round(np.r_[np.arange(.1,upper,.1),upper],2)))
+            cbar.set_label('Segment modal energy / reference eigenvalue [-]')
+            for index,energy_ax in enumerate(energy_axes):
+                energy_ax.set_ylim(0,8)
+                if index%3==2:energy_ax.set_ylabel('Integrated energy / reference',color='C3')
+            for ax in axes[:,0]:ax.set_ylabel(r'$\eta$ [-]')
+            for index,(ax,key) in enumerate(zip(axes.flat,CASES)):
+                label = r'AZDES $\alpha=4.0^\circ$' if key=='azdes' else rf'PSP $\alpha={POLARS[key]:.1f}^\circ$'
+                ax.set_title(rf'({chr(97+index)}) '+label)
+            for ax in axes.flat:ax.grid(alpha=.8,linestyle=':',linewidth=.8)
+            paper_stem=paper_destination/stem.name
+            export(fig,paper_stem);report(paper_stem)
+            plt.close(fig)
 
 
 if __name__=='__main__':

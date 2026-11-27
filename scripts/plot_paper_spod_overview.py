@@ -60,6 +60,9 @@ def main():
     # Adjacent PSP/numerical 4-degree panels on the first row.
     selections = [('0257', 3.5), ('0258', 4), ('numerical', 4),
                   ('0259', 4.5), ('0260', 5), ('0261', 6)]
+    psp_snapshots = {polar: json.loads((output/'psp/working/svd'/f'polar_{polar}'/'run.json').read_text())['snapshots']
+                     for polar, _ in selections if polar != 'numerical'}
+    numerical_snapshots = json.loads((output/'analysis/working/svd/cp/run.json').read_text())['snapshots']
     frequencies, eigenvalues, timescales, titles, metadata, bandwidths = [], [], [], [], [], []
     for index, (polar, angle) in enumerate(selections):
         numerical = polar == 'numerical'
@@ -69,12 +72,12 @@ def main():
         record, f, values, bandwidth = read_result(path, rank, tolerance)
         if not numerical:
             assert record['polar'] == polar and record['angle_deg'] == angle
-            assert record['snapshots'] == 3639
+            assert record['snapshots'] == psp_snapshots[polar]
             assert record['subtract_snapshot_spatial_mean'] and record['subtract_pointwise_temporal_mean']
             assert record['domain']['automatic_mask'] == 'p5_t10'
             assert record['domain']['crop_pixels_each_edge'] == 5 and record['domain']['native_mask'] is None
         else:
-            assert record['nfft'] == 1310
+            assert record['nfft'] == numerical_snapshots
         dataset = 'numerical' if numerical else 'psp'
         chord, velocity = reference(dataset, None if numerical else polar)
         frequencies.append(torch.from_numpy(frequency_hz(f, dataset)))
@@ -92,8 +95,6 @@ def main():
                          'cap_hit_fraction': record['cap_hit_fraction'],
                          'tolerance_met_fraction': record['tolerance_met_fraction']})
     coordinates = [f.numpy()*t for f, t in zip(frequencies, timescales)]
-    numerical_x = coordinates[2]
-    x_lower = float(numerical_x[numerical_x > 0].min())
     x_upper = min(float(x.max()) for i, x in enumerate(coordinates) if i != 2)
     peak_references = {}
     for name, index in [('psp_alpha4', 1), ('azdes', 2)]:
@@ -128,7 +129,7 @@ def main():
         for ax, f, values, timescale, bandwidth, title, item in zip(
                 axes.flat, frequencies, plotted_eigenvalues, timescales, bandwidths, titles, metadata):
             coordinate = f.numpy()*timescale
-            targets = np.geomspace(x_lower*1.4, x_upper/1.4, 5)
+            targets = np.geomspace(.05*1.4, x_upper/1.4, 5)
             indices = np.unique([np.abs(coordinate-target).argmin() for target in targets])
             plot_spod_spectrum(f, values, n_show=5, show_sum=True,
                                normalize_energy=False, energy_density=False,
@@ -162,7 +163,7 @@ def main():
                 valid = y > np.finfo(np.float64).tiny
                 np.testing.assert_allclose(actual[valid], y[valid], rtol=2e-14)
                 coordinate = f.numpy()*timescale
-                visible = (coordinate >= x_lower) & (coordinate <= x_upper)
+                visible = (coordinate >= .05) & (coordinate <= x_upper)
                 positive_y.extend(y[valid & visible])
             # DC is omitted on the logarithmic frequency axis.
             for line in ax.lines[:6]:
@@ -180,10 +181,10 @@ def main():
                 ax.axvline(st, color=plt.rcParams['grid.color'],
                            linestyle=':',
                            linewidth=.8, alpha=.4, zorder=0.5)
-        axes.flat[0].set_xlim(x_lower, x_upper)
+        axes.flat[0].set_xlim(.05, x_upper)
         axes.flat[0].set_ylim(min(positive_y)/1.3, max(positive_y)*1.3)
-        fig.supxlabel(r'$St$', fontsize=STYLE['axes.labelsize'])
-        fig.supylabel(r'$\lambda/\lambda_{\mathrm{ref}}$', fontsize=STYLE['axes.labelsize'])
+        fig.supxlabel(r'$St$ [-]', fontsize=STYLE['axes.labelsize'])
+        fig.supylabel(r'$\lambda/\lambda_{\mathrm{ref}}$ [-]', fontsize=STYLE['axes.labelsize'])
         handles = list(axes.flat[0].lines[:2]) + [axes.flat[0].containers[0]]
         # Legend in one panel avoids taking space from the shared labels.
         axes.flat[0].legend(handles, [r'$\sum_i\lambda_i$', r'$\lambda_1,\ldots,\lambda_5$', r'$\Delta St_{1/2}$'],
@@ -198,8 +199,8 @@ def main():
               'resolution_markers': 'Five approximately log-spaced samples per panel; native FlowTorch horizontal error bars show plus/minus adaptive half-bandwidth in St on summed spectrum',
               'normalization_band_St': [.2, x_upper],
               'normalization_references': peak_references,
-              'strouhal_limits': [x_lower, x_upper],
-              'limit_definition': 'first positive AZDES bin to minimum of PSP maximum Strouhal values; y limits from visible positive curve values with 30 percent multiplicative padding',
+              'strouhal_limits': [.05, x_upper],
+              'limit_definition': 'fixed 0.05 lower St limit to minimum of PSP maximum Strouhal values; y limits from visible positive curve values with 30 percent multiplicative padding',
               'display': 'first five eigenvalues and sum over ALL eigenvalues; log-log; common AZDES-to-PSP frequency interval; DC hidden; no smoothing',
               'comparison_limitations': 'Different temporal records/frequency-bin widths; reference-scaled bin energies, not spectral densities; separate PSP and AZDES scales remove absolute cross-dataset amplitude information while preserving PSP angle-to-angle levels. PSP subtracts snapshot spatial mean; numerical does not.',
               'curve_validation': 'All 36 native curves match saved eigenvalues and their sums divided by raw alpha4 leading-eigenvalue peaks; both reference leading peaks equal one in the search interval',
@@ -233,7 +234,7 @@ def main():
                     np.testing.assert_array_equal(leading, raw_leading)
                 if not np.isfinite(leading).all() or np.any(leading < 0):
                     raise ValueError('Invalid eigenvalue curve')
-                keep = (coordinate >= .1) & (coordinate <= x_upper) & (leading > 0)
+                keep = (coordinate >= .05) & (coordinate <= x_upper) & (leading > 0)
                 visible_values.extend(leading[keep])
                 label = ('AZDES' if polar == 'numerical' else 'PSP') + rf', $\alpha={angle:g}^\circ$'
                 line, = ax.plot(coordinate[coordinate > 0], leading[coordinate > 0],
@@ -243,19 +244,19 @@ def main():
                                 zorder=2, label=label)
                 np.testing.assert_array_equal(line.get_ydata(), leading[positive])
             ax.set(xscale='log', yscale='log')
-            ax.set_xticks([.1, .2, .3, .5, .7, .9])
+            ax.set_xticks([.05, .1, .2, .3, .5, .7, .9])
             ax.xaxis.set_major_formatter(FuncFormatter(lambda value, position: f'{value:g}'))
             ax.xaxis.set_minor_formatter(NullFormatter())
             ax.grid(alpha=.4, which='major', linestyle=':', linewidth=.8)
             ax.legend(fontsize=9, ncol=2, loc='lower left')
-        axes[0].set(xlim=(.1, x_upper), ylim=(min(visible_values)/1.2, max(visible_values)*1.2))
-        fig.supxlabel(r'$St$', fontsize=STYLE['axes.labelsize'])
-        fig.supylabel(r'$\lambda_1/\lambda_{\mathrm{ref}}$', fontsize=STYLE['axes.labelsize'])
+        axes[0].set(xlim=(.05, x_upper), ylim=(min(visible_values)/1.2, max(visible_values)*1.2))
+        fig.supxlabel(r'$St$ [-]', fontsize=STYLE['axes.labelsize'])
+        fig.supylabel(r'$\lambda_1/\lambda_{\mathrm{ref}}$ [-]', fontsize=STYLE['axes.labelsize'])
         leading_stem = destination/'spod_leading_eigenvalues'
         export(fig, leading_stem)
         plt.close(fig)
     leading_report = dict(report)
-    leading_report.update(size_mm=[180, 85], strouhal_limits=[.1, x_upper], panel_indices=panel_indices, display='Single panel: PSP 3.5/4/4.5/5/6 and AZDES4; logarithmic St and eigenvalue axes; PSP curves smoothed with raw spectra in background; AZDES unsmoothed',
+    leading_report.update(size_mm=[180, 85], strouhal_limits=[.05, x_upper], panel_indices=panel_indices, display='Single panel: PSP 3.5/4/4.5/5/6 and AZDES4; logarithmic St and eigenvalue axes; PSP curves smoothed with raw spectra in background; AZDES unsmoothed',
                           normalization='Divide by maximum leading eigenvalue at St >= 0.2 within displayed range; all PSP curves share PSP alpha4 reference; AZDES uses its own reference',
                           normalization_band_St=[.2, x_upper], normalization_references=peak_references,
                           panels=[dict(item, normalization_factor=factor) for item, factor in zip(metadata, peak_factors)],

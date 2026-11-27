@@ -49,7 +49,7 @@ def main():
     if sha256(numerical_dir/'fields.npz')!=numerical_record['output_sha256']:raise ValueError('Modified numerical data')
     with np.load(numerical_dir/'fields.npz') as d:
         eta,xc=normalized_front(d['front'],d['coordinates'])
-    cases.insert(2,dict(name='AZDES 4.0',label=r'$\alpha=4.0^\circ$ (AZDS)',eta=eta,xc=xc,
+    cases.insert(2,dict(name='AZDES 4.0',label=r'$\alpha=4.0^\circ$ (AZDES)',eta=eta,xc=xc,
         separation=numerical_record['separation_span_fraction'],color=colors[1],style='--',width=1.7))
     destination=args.output_dir or base/'paper/figures';destination.mkdir(parents=True,exist_ok=True)
     import matplotlib
@@ -67,10 +67,10 @@ def main():
             order=np.argsort(c['eta'][valid])
             at_marker=np.interp(c['separation'],c['eta'][valid][order],c['xc'][valid][order])
             ax.plot(c['separation'],at_marker,marker='x',color=c['color'],ms=5,mew=1.1)
-        ax.set(xlim=(.1,1),ylim=(0,1),xlabel=r'$\eta$',
-               ylabel=r'$x_s/c$')
+        ax.set(xlim=(.1,1),ylim=(0,1),xlabel=r'$\eta$ [-]',
+               ylabel=r'$x_s/c$ [-]')
         ax.set_xticks(np.arange(.1,1.01,.1));ax.set_yticks(np.arange(0,1.01,.2));ax.grid(alpha=.2,lw=.6)
-        ax.legend(loc='upper right',ncol=3,frameon=True,framealpha=.95,edgecolor='0.85',fontsize=9)
+        ax.legend(loc='upper right',ncol=3,frameon=True,framealpha=.95,edgecolor='0.85')
         stem=destination/'shock_front_comparison';export(fig,stem);plt.close(fig)
     metadata=dict(size_mm=[180,90],use_tex=not args.no_tex,
         span_definition='eta = (-y - min(-y_PSP))/(max(-y_PSP)-min(-y_PSP)); displayed PSP root-to-tip extent, not aircraft semispan',
