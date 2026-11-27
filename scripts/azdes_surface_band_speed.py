@@ -2,6 +2,7 @@
 import argparse
 import json
 import h5py
+import hdf5plugin  # Registers the compressed geometry filters.
 import numpy as np
 import torch
 from dotenv import load_dotenv
